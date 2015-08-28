@@ -22,6 +22,7 @@ import com.squareup.haha.perflib.Field;
 import com.squareup.haha.perflib.HprofParser;
 import com.squareup.haha.perflib.Instance;
 import com.squareup.haha.perflib.RootObj;
+import com.squareup.haha.perflib.RootType;
 import com.squareup.haha.perflib.Snapshot;
 import com.squareup.haha.perflib.Type;
 import com.squareup.haha.perflib.io.HprofBuffer;
@@ -119,8 +120,54 @@ public final class HeapAnalyzer {
 
     String className = leakingRef.getClassObj().getClassName();
 
-    return leakDetected(result.excludingKnownLeaks, className, leakTrace,
+    // Side effect: computes retained size.
+    snapshot.computeDominators();
+
+    Instance leakingInstance = result.leakingNode.instance;
+
+    long retainedSize = leakingInstance.getTotalRetainedSize();
+
+    retainedSize += computeBitmapRetainedSize(snapshot, leakingInstance);
+
+    return leakDetected(result.excludingKnownLeaks, className, leakTrace, retainedSize,
         since(analysisStartNanoTime));
+  }
+
+  private int computeBitmapRetainedSize(Snapshot snapshot, Instance leakingInstance) {
+    // Bitmaps and bitmap byte arrays are held by native gc roots, so they aren't included in the
+    // retained size because their dominator is a native gc root. So instead, we go in and compute
+    // that extra size.
+
+    int bitmapRetainedSize = 0;
+    ClassObj bitmapClass = snapshot.findClass("android.graphics.Bitmap");
+    for (Instance bitmapInstance : bitmapClass.getInstancesList()) {
+      if (isDominator(leakingInstance, bitmapInstance)) {
+        ArrayInstance mBufferInstance = fieldValue(classInstanceValues(bitmapInstance), "mBuffer");
+        bitmapRetainedSize += mBufferInstance.getTotalRetainedSize();
+      }
+    }
+    return bitmapRetainedSize;
+  }
+
+  private boolean isDominator(Instance dominator, Instance instance) {
+    while ((instance = getImmediateDominator(instance)) != null) {
+      if (instance == dominator) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private Instance getImmediateDominator(Instance instance) {
+    Instance dominator = instance.getImmediateDominator();
+    // Ignore native roots.
+    if (dominator instanceof RootObj) {
+      RootObj rootObj = (RootObj) dominator;
+      if (rootObj.getRootType() == RootType.UNKNOWN) {
+        return instance.getNextInstanceToGcRoot();
+      }
+    }
+    return dominator;
   }
 
   private LeakTrace buildLeakTrace(LeakNode leakingNode) {

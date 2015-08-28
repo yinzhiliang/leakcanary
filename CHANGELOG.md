@@ -10,6 +10,7 @@
 * Added LeakCanary SHA to text report [#120](https://github.com/square/leakcanary/issues/120).
 * Renamed all resources to begin with `leak_canary_` instead of `__leak_canary`[#161](https://github.com/square/leakcanary/pull/161)
 * No crash when heap dump fails [#226](https://github.com/square/leakcanary/issues/226).
+* Add retained size to leak reports [#162](https://github.com/square/leakcanary/issues/162).
 
 ### Public API changes
 

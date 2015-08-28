@@ -56,6 +56,7 @@ import java.util.concurrent.Executors;
 import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
 import static android.text.format.DateUtils.FORMAT_SHOW_DATE;
 import static android.text.format.DateUtils.FORMAT_SHOW_TIME;
+import static android.text.format.Formatter.formatShortFileSize;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static com.squareup.leakcanary.LeakCanary.leakInfo;
@@ -255,8 +256,8 @@ public final class DisplayLeakActivity extends Activity {
         }
         HeapDump heapDump = visibleLeak.heapDump;
         adapter.update(result.leakTrace, heapDump.referenceKey, heapDump.referenceName);
-        setTitle(
-            getString(R.string.leak_canary_class_has_leaked, classSimpleName(result.className)));
+        setTitle(getString(R.string.leak_canary_class_has_leaked, classSimpleName(result.className),
+            formatShortFileSize(this, result.retainedHeapSize)));
       }
     } else {
       if (listAdapter instanceof LeakListAdapter) {
@@ -337,7 +338,8 @@ public final class DisplayLeakActivity extends Activity {
       String title;
       if (leak.result.failure == null) {
         title = index + getString(R.string.leak_canary_class_has_leaked,
-            classSimpleName(leak.result.className));
+            classSimpleName(leak.result.className),
+            formatShortFileSize(DisplayLeakActivity.this, leak.result.retainedHeapSize));
       } else {
         title = index
             + leak.result.failure.getClass().getSimpleName()

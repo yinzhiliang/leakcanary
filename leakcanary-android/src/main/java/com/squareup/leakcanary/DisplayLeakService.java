@@ -30,6 +30,7 @@ import java.io.ObjectOutputStream;
 import static android.os.Build.VERSION.SDK_INT;
 import static android.os.Build.VERSION_CODES.HONEYCOMB;
 import static android.os.Build.VERSION_CODES.JELLY_BEAN;
+import static android.text.format.Formatter.formatShortFileSize;
 import static com.squareup.leakcanary.LeakCanary.leakInfo;
 import static com.squareup.leakcanary.internal.LeakCanaryInternals.classSimpleName;
 import static com.squareup.leakcanary.internal.LeakCanaryInternals.findNextAvailableHprofFile;
@@ -44,8 +45,7 @@ import static com.squareup.leakcanary.internal.LeakCanaryInternals.leakResultFil
  */
 public class DisplayLeakService extends AbstractAnalysisResultService {
 
-  @Override
-  protected final void onHeapAnalyzed(HeapDump heapDump, AnalysisResult result) {
+  @Override protected final void onHeapAnalyzed(HeapDump heapDump, AnalysisResult result) {
     String leakInfo = leakInfo(this, heapDump, result, true);
     if (leakInfo.length() < 4000) {
       Log.d("LeakCanary", leakInfo);
@@ -107,7 +107,8 @@ public class DisplayLeakService extends AbstractAnalysisResultService {
     String contentTitle;
     if (result.failure == null) {
       contentTitle =
-          getString(R.string.leak_canary_class_has_leaked, classSimpleName(result.className));
+          getString(R.string.leak_canary_class_has_leaked, classSimpleName(result.className),
+              formatShortFileSize(this, result.retainedHeapSize));
     } else {
       contentTitle = getString(R.string.leak_canary_analysis_failed);
     }
@@ -118,8 +119,7 @@ public class DisplayLeakService extends AbstractAnalysisResultService {
   }
 
   @TargetApi(HONEYCOMB)
-  private void notify(String contentTitle, String contentText,
-      PendingIntent pendingIntent) {
+  private void notify(String contentTitle, String contentText, PendingIntent pendingIntent) {
     NotificationManager notificationManager =
         (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
