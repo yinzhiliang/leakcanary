@@ -19,11 +19,13 @@ import android.app.Application;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.os.Build;
 import android.util.Log;
 import com.squareup.leakcanary.internal.DisplayLeakActivity;
 import com.squareup.leakcanary.internal.HeapAnalyzerService;
 
+import static android.text.format.Formatter.formatShortFileSize;
 import static com.squareup.leakcanary.internal.LeakCanaryInternals.isInServiceProcess;
 import static com.squareup.leakcanary.internal.LeakCanaryInternals.setEnabled;
 
@@ -61,15 +63,24 @@ public final class LeakCanary {
    */
   public static RefWatcher androidWatcher(Context context, HeapDump.Listener heapDumpListener,
       ExcludedRefs excludedRefs) {
+    LeakDirectoryProvider leakDirectoryProvider = new DefaultLeakDirectoryProvider(context);
     DebuggerControl debuggerControl = new AndroidDebuggerControl();
-    AndroidHeapDumper heapDumper = new AndroidHeapDumper(context);
+    AndroidHeapDumper heapDumper = new AndroidHeapDumper(context, leakDirectoryProvider);
     heapDumper.cleanup();
-    return new RefWatcher(new AndroidWatchExecutor(), debuggerControl, GcTrigger.DEFAULT,
-        heapDumper, heapDumpListener, excludedRefs);
+    Resources resources = context.getResources();
+    int watchDelayMillis = resources.getInteger(R.integer.leak_canary_watch_delay_millis);
+    AndroidWatchExecutor executor = new AndroidWatchExecutor(watchDelayMillis);
+    return new RefWatcher(executor, debuggerControl, GcTrigger.DEFAULT, heapDumper,
+        heapDumpListener, excludedRefs);
   }
 
   public static void enableDisplayLeakActivity(Context context) {
     setEnabled(context, DisplayLeakActivity.class, true);
+  }
+
+  public static void setDisplayLeakActivityDirectoryProvider(
+      LeakDirectoryProvider leakDirectoryProvider) {
+    DisplayLeakActivity.setLeakDirectoryProvider(leakDirectoryProvider);
   }
 
   /** Returns a string representation of the result of a heap analysis. */
@@ -89,13 +100,14 @@ public final class LeakCanary {
     String detailedString = "";
     if (result.leakFound) {
       if (result.excludedLeak) {
-        info += "* LEAK CAN BE IGNORED.\n";
+        info += "* EXCLUDED LEAK.\n";
       }
       info += "* " + result.className;
       if (!heapDump.referenceName.equals("")) {
         info += " (" + heapDump.referenceName + ")";
       }
       info += " has leaked:\n" + result.leakTrace.toString() + "\n";
+      info += "* Retaining: " + formatShortFileSize(context, result.retainedHeapSize) + ".\n";
       if (detailed) {
         detailedString = "\n* Details:\n" + result.leakTrace.toDetailedString();
       }

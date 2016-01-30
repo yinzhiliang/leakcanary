@@ -1,4 +1,4 @@
-#LeakCanary
+# LeakCanary
 
 A memory leak detection library for Android and Java.
 
@@ -12,8 +12,9 @@ In your `build.gradle`:
 
 ```gradle
  dependencies {
-   debugCompile 'com.squareup.leakcanary:leakcanary-android:1.3.1'
-   releaseCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.3.1'
+   debugCompile 'com.squareup.leakcanary:leakcanary-android:1.3.1' // or 1.4-beta1
+   releaseCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.3.1' // or 1.4-beta1
+   testCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.3.1' // or 1.4-beta1
  }
 ```
 
@@ -124,7 +125,7 @@ If you find a new one, please [create an issue](https://github.com/square/leakca
 5. File an issue on [b.android.com](http://b.android.com) with the leak trace and the repro case
 6. Create a PR in LeakCanary to update `AndroidExcludedRefs.java`. Optional: if you find a hack to clear that leak on previous versions of Android, feel free to document it.
 
-This is especially important for **new releases of Android**. You have the opportunity to help detect new memory leaks early on, which benefits the entire Android community. 
+This is especially important for **new releases of Android**. You have the opportunity to help detect new memory leaks early on, which benefits the entire Android community.
 
 ## Beyond the leak trace
 
@@ -215,6 +216,21 @@ res/
 </resources>
 ```
 
+### Watcher delay
+
+*Available in 1.4-SNAPSHOT*.
+
+You can change the delay until a reference is considered a memory leak by providing `R.integer.leak_canary_watch_delay_millis` in your app:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <integer name="leak_canary_watch_delay_millis">1500</integer>
+</resources>
+```
+
+The default delay is 5 seconds.
+
 ### Uploading to a server
 
 You can change the default behavior to upload the leak trace and heap dump to a server of your choosing.
@@ -235,6 +251,7 @@ public class LeakUploadService extends DisplayLeakService {
 Build a custom `RefWatcher` in your debug Application class:
 
 ```java
+// ExampleApplication is defined in "Customizing and using the no-op dependency"
 public class DebugExampleApplication extends ExampleApplication {
   protected RefWatcher installLeakCanary() {
     return LeakCanary.install(app, LeakUploadService.class, AndroidExcludedRefs.createAppDefaults().build());
@@ -262,6 +279,7 @@ You can also upload the leak traces to Slack or HipChat, [here's an example](htt
 You can create your own version of `ExcludedRefs` to ignore specific references that you know are causing leaks but you still want to ignore:
 
 ```java
+// ExampleApplication is defined in "Customizing and using the no-op dependency"
 public class DebugExampleApplication extends ExampleApplication {
   protected RefWatcher installLeakCanary() {
     ExcludedRefs excludedRefs = AndroidExcludedRefs.createAppDefaults()
@@ -277,15 +295,16 @@ public class DebugExampleApplication extends ExampleApplication {
 `ActivityRefWatcher` is installed by default and watches all activities. You can customize the installation steps to use something different instead:
 
 ```java
+// ExampleApplication is defined in "Customizing and using the no-op dependency"
 public class DebugExampleApplication extends ExampleApplication {
-  protected RefWatcher installLeakCanary() {
-    if (isInAnalyzerProcess(this)) {
+  @Override protected RefWatcher installLeakCanary() {
+    if (LeakCanary.isInAnalyzerProcess(this)) {
       return RefWatcher.DISABLED;
     } else {
       ExcludedRefs excludedRefs = AndroidExcludedRefs.createAppDefaults().build();
-      enableDisplayLeakActivity(application);
-      ServiceHeapDumpListener heapDumpListener = new ServiceHeapDumpListener(application, DisplayLeakService.class);
-      final RefWatcher refWatcher = androidWatcher(application, heapDumpListener, excludedRefs);
+      LeakCanary.enableDisplayLeakActivity(this);
+      ServiceHeapDumpListener heapDumpListener = new ServiceHeapDumpListener(this, DisplayLeakService.class);
+      final RefWatcher refWatcher = LeakCanary.androidWatcher(this, heapDumpListener, excludedRefs);
       registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
         public void onActivityDestroyed(Activity activity) {
           if (activity instanceof ThirdPartyActivity) {
@@ -299,16 +318,6 @@ public class DebugExampleApplication extends ExampleApplication {
     }
   }
 }
-```
-
-### ProGuard
-
-If you use Proguard in your debug builds, make sure to keep the HAHA and LeakCanary classes:
-
-```
-# LeakCanary
--keep class org.eclipse.mat.** { *; }
--keep class com.squareup.leakcanary.** { *; }
 ```
 
 ## Snapshots of the development version

@@ -24,7 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 public class RefWatcherTest {
 
-  static final ExcludedRefs NO_REF = new ExcludedRefs.Builder().build();
+  static final ExcludedRefs NO_REF = new ExcludedRefs.BuilderWithParams().build();
 
   static class TestDumper implements HeapDumper {
     boolean called;
@@ -43,7 +43,7 @@ public class RefWatcherTest {
   @SuppressWarnings("FieldCanBeLocal") Object ref;
 
   static class TestExecutor implements Executor {
-    private Runnable command;
+    Runnable command;
 
     @Override public void execute(Runnable command) {
       this.command = command;
